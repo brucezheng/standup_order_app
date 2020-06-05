@@ -1,0 +1,154 @@
+<html>
+  <head>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" crossorigin="anonymous"></script>
+
+    <!-- Bootstrap -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous">
+
+    <!-- Datepicker Widget -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datepicker/1.0.9/datepicker.js"
+            integrity="sha256-0Fc1Yr95gRBQkUHlLwkiVnoSDz/fyT6nlEM2qRQVWFY="
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datepicker/1.0.9/i18n/datepicker.en-US.js" integrity="sha256-5lYMbVn8XZSf5wQxNH7Eyap6qktMxUmTrum05NBiouU=" crossorigin="anonymous"></script>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/datepicker/1.0.9/datepicker.css"
+          integrity="sha256-90Cr/DT8IOYaqPJH08i65guFgbUBewVHxp2TLKxkXVI="
+          crossorigin="anonymous">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+      .nameContainer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: calc(100% - 36px);
+      }
+
+      .name {
+        font-size: 50pt;
+        font-family: 'Open Sans', sans-serif;
+        margin: 8px;
+        opacity: 1;
+        cursor: default;
+        transition: margin 300ms, font-size 200ms, opacity 500ms;
+      }
+
+      .name.invisible {
+        opacity: 0.0001;
+      }
+
+      .name:hover {
+        margin: 24px;
+        font-size: 60pt;
+        color: grey;
+      }
+
+      #calendar {
+        position: relative;
+      }
+
+      #calendar-button {
+        cursor: pointer;
+        font-size: 36px;
+        height: 36px;
+        width: 36px;
+        opacity: 0.2;
+        user-select: none;
+      }
+
+      #calendar-button:hover {
+        opacity: 0.4;
+      }
+
+      #calendar-input {
+        bottom: 42px;
+        left: 6px;
+        position: absolute;
+        border: rgba(1, 1, 1, 0.2) 1px solid;
+      }
+
+      #calendar-input li.picked {
+        font-weight: bold;
+      }
+    </style>
+    <script>
+      let nameContainerEl;
+      const SHOW_STEP_DELAY_MS = 300;
+
+      const internNames = [
+        'Dan Abreo',
+        'Malcolm Jones',
+        'Sabrina Snider',
+      ];
+
+      const permutations = [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+      ];
+
+      function initializePage() {
+        nameContainerEl = document.querySelector('.nameContainer');
+        $('#calendar-input').datepicker({inline: true,});
+        $('#calendar-button').click(() => $('#calendar-input-container').toggle());
+        $('#calendar-input').on('pick.datepicker',renderNamesOfCurrentDate);
+        renderNamesOfCurrentDate();
+      }
+
+      function createName(name, delay) {
+        const nameEl = document.createElement('div');
+        nameEl.innerHTML = name;
+        nameEl.classList.add('name');
+        nameEl.classList.add('invisible');
+        nameContainerEl.appendChild(nameEl);
+        setTimeout(() => nameEl.classList.remove('invisible'), delay);
+      }
+
+      function renderNamesOfCurrentDate() {
+        nameContainerEl.innerHTML = '';
+        const date = $('#calendar-input').datepicker('getDate', true);
+        console.log(hashString(date));
+        const permutationIndex =
+            ((hashString(date) % permutations.length) + permutations.length) % 
+                permutations.length;
+        const permutation = permutations[permutationIndex];
+        permutation
+            .map(nameIndex => internNames[nameIndex])
+            .forEach(
+                (name, index) =>
+                    createName(name, /* delay= */ (index + 1) * SHOW_STEP_DELAY_MS));
+      }
+
+      function hashString(string) {
+        let result = 0;
+        for (let i = 0; i < string.length; i++) {
+          result += Math.pow(27, 10 - i - 1) *
+                        (1 + string.charCodeAt(i) - 'a'.charCodeAt(0));
+        }
+        return result;
+      }
+    </script>
+  </head>
+
+  <body onload="initializePage()">
+    <div class="nameContainer">
+    </div>
+    <div id="calendar">
+      <span id="calendar-button" class="material-icons">
+        today
+      </span>
+      <div id="calendar-input-container" style="display: none;">
+        <div id="calendar-input" data-toggle="datepicker"></div>
+      </div>
+    </div>
+  </body>
+</html>
