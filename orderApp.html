@@ -87,7 +87,14 @@
     </style>
     <script>
       let nameContainerEl;
+
       const SHOW_STEP_DELAY_MS = 300;
+
+      /**
+       * Offset added to generating random numbers to make outcomes more equally
+       * distributed.
+       */
+      const PSEUDO_RANDOM_OFFSET = 122;
 
       const internNames = [
         'Dan Abreo',
@@ -123,11 +130,7 @@
 
       function renderNamesOfCurrentDate() {
         const date = $('#calendar-input').datepicker('getDate', true);
-        const permutationIndex =
-            ((hashString(date) % permutations.length) + permutations.length) % 
-                permutations.length;
-        const permutation = permutations[permutationIndex];
-
+        const permutation = permutations[getPermutationForDate(date, permutations.length)];
         nameContainerEl.innerHTML = '';
         permutation
             .map(nameIndex => internNames[nameIndex])
@@ -136,13 +139,27 @@
                     createName(name, /* delay= */ (index + 1) * SHOW_STEP_DELAY_MS));
       }
 
-      function hashString(string) {
-        let result = 0;
-        for (let i = 0; i < string.length; i++) {
-          result += Math.pow(27, 10 - i - 1) *
-                        (1 + string.charCodeAt(i) - 'a'.charCodeAt(0));
-        }
-        return result;
+      function getPermutationForDate(dateString, numPermutations) {
+        const randomNumber = pseudoRandom(getDayOfYear(dateString) + PSEUDO_RANDOM_OFFSET);
+        return Math.floor(randomNumber * numPermutations);
+      }
+
+      function getDayOfYear(dateString) {
+        const month = Number(dateString.substring(0, 2)); // Range: 1-12
+        const day = Number(dateString.substring(3, 5)); // Range: 1-31
+        const year = Number(dateString.substring(6, 10));
+
+        const end = new Date(year, month - 1, day); // Month is 0 indexed
+        const start = new Date(year, 0, 0);
+        const diff = end - start;
+        const singleDayDuration = 1000 * 60 * 60 * 24;
+        return Math.floor(diff / singleDayDuration);
+      }
+
+      // Source: https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
+      function pseudoRandom(seed) {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
       }
     </script>
   </head>
