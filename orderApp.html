@@ -22,11 +22,14 @@
           integrity="sha256-90Cr/DT8IOYaqPJH08i65guFgbUBewVHxp2TLKxkXVI="
           crossorigin="anonymous">
 
+    <!-- Confetti -->
+    <script src="https://cdn.jsdelivr.net/gh/mathusummut/confetti.js/confetti.min.js"></script>
+
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-      .nameContainer {
+      #main-content {
         /* Layout */
         display: flex;
         flex-direction: column;
@@ -34,10 +37,12 @@
         justify-content: center;
         /* Display */
         height: calc(100% - 36px);
+        opacity: 1;
         width: 100%;
+        transition: opacity 50ms;
       }
 
-      .name {
+      .content-line {
         cursor: default;
         font-size: 50pt;
         font-family: 'Open Sans', sans-serif;
@@ -46,14 +51,19 @@
         transition: margin 300ms, font-size 200ms, opacity 500ms;
       }
 
-      .name.invisible {
+      #main-content.hiding,
+      .content-line.hiding {
         opacity: 0.0001;
       }
 
-      .name:hover {
+      .content-line.visited {
         color: grey;
         font-size: 60pt;
-        margin: 24px;
+        margin: 12px;
+      }
+
+      .content-line.active {
+        color: blue;
       }
 
       #calendar {
@@ -86,9 +96,11 @@
       }
     </style>
     <script>
-      let nameContainerEl;
+      let mainContentEl;
+      let datePicker;
 
-      const SHOW_STEP_DELAY_MS = 300;
+      const SHOW_STEP_DELAY_MS = 200;
+      const MAIN_CONTENT_CLEAR_TIME_MS = 50;
 
       /**
        * Offset added to generating random numbers to make outcomes more equally
@@ -111,32 +123,144 @@
         [2, 1, 0],
       ];
 
+      const StandupState = {
+        START: 0,
+        TAKING_TURNS: 1,
+        END: 2,
+      }
+
+      let currentStandupState = {
+        state: StandupState.START,
+        turnNumber: null,
+      };
+
       function initializePage() {
-        nameContainerEl = document.querySelector('.nameContainer');
-        $('#calendar-input').datepicker({inline: true,});
+        mainContentEl = document.querySelector('#main-content');
+        calendarInput = $('#calendar-input');
+        calendarInput.datepicker({inline: true});
+        calendarInput.on('pick.datepicker', startStandup);
         $('#calendar-button').click(() => $('#calendar-input-container').toggle());
-        $('#calendar-input').on('pick.datepicker',renderNamesOfCurrentDate);
-        renderNamesOfCurrentDate();
+        startStandup();
+        $(document).keydown((event) => {
+          if (event.code == "Enter" || event.code == "Space") {
+            transitionStateForward();
+          } else if (event.code == "Backspace") {
+            transitionStateBackward();
+          }
+        });
       }
 
-      function createName(name, delay) {
-        const nameEl = document.createElement('div');
-        nameEl.innerHTML = name;
-        nameEl.classList.add('name');
-        nameEl.classList.add('invisible');
-        nameContainerEl.appendChild(nameEl);
-        setTimeout(() => nameEl.classList.remove('invisible'), delay);
+      function renderContentLine(name, delay, id=null) {
+        const contentLineEl = document.createElement('div');
+        contentLineEl.innerHTML = name;
+        contentLineEl.classList.add('content-line');
+        if (delay) {
+          contentLineEl.classList.add('hiding');
+        }
+        if (id) {
+          contentLineEl.id = id;
+        }
+        mainContentEl.appendChild(contentLineEl);
+        if (delay) {
+          setTimeout(
+              () => contentLineEl.classList.remove('hiding'), delay);
+        }
       }
 
-      function renderNamesOfCurrentDate() {
-        const date = $('#calendar-input').datepicker('getDate', true);
-        const permutation = permutations[getPermutationForDate(date, permutations.length)];
-        nameContainerEl.innerHTML = '';
+      function transitionStateForward() {
+        switch (currentStandupState.state) {
+          case StandupState.START:
+            showDateVisited();
+            displayStandupOrder();
+            currentStandupState.state = StandupState.TAKING_TURNS;
+            currentStandupState.turnNumber = 0;
+            break;
+          case StandupState.TAKING_TURNS:
+            const isAtFinalTurn =
+                currentStandupState.turnNumber === internNames.length;
+            isAtFinalTurn ?
+                finishStandup() : takeStandupTurn(currentStandupState.turnNumber);
+            currentStandupState.turnNumber =
+                isAtFinalTurn ? 
+                    null :
+                    currentStandupState.turnNumber + 1;
+            currentStandupState.state =
+                isAtFinalTurn ? StandupState.END : StandupState.TAKING_TURNS;
+          case StandupState.END:
+          default:
+            // Do nothing.
+        }
+      }
+
+      function transitionStateBackward() {
+        // TODO: Implement backnavigation.
+      }
+
+      async function clearMainContent() {
+        if (mainContentEl.innerHTML) {
+          mainContentEl.classList.add('hiding');
+          return new Promise(
+              resolve => setTimeout(() => {
+                mainContentEl.innerHTML = '';
+                mainContentEl.classList.remove('hiding');
+                resolve();
+              }, MAIN_CONTENT_CLEAR_TIME_MS));
+        }
+      }
+
+      function startStandup() {
+        if (currentStandupState.state === StandupState.END) {
+          confetti.stop();
+        }
+        currentStandupState.state = StandupState.START;
+        currentStandupState.turnNumber = null;
+        displayCurrentDate();
+      }
+
+      async function displayCurrentDate() {
+        await clearMainContent();
+        renderContentLine(getDateString(true), /* delay= */ 0, 'current-date');
+      }
+
+      async function showDateVisited() {
+        $('#current-date').addClass('active');
+        $('#current-date').addClass('visited');
+      }
+
+      async function displayStandupOrder() {
+        await clearMainContent();
+        const permutation =
+            permutations[getPermutationForDate(getDateString(), permutations.length)];
         permutation
             .map(nameIndex => internNames[nameIndex])
             .forEach(
                 (name, index) =>
-                    createName(name, /* delay= */ (index + 1) * SHOW_STEP_DELAY_MS));
+                    renderContentLine(
+                        name,
+                        /* delay= */ index * SHOW_STEP_DELAY_MS + 10,
+                        /* id= */ `name-${index}`));
+      }
+
+      function takeStandupTurn(turnNumber) {
+        const currentNameEl = $(`#name-${turnNumber}`);
+        currentNameEl.addClass('visited');
+        currentNameEl.addClass('active');
+        setTimeout(() => currentNameEl.removeClass('active'), 75);
+      }
+
+      async function finishStandup() {
+        await clearMainContent();
+        renderContentLine('Congrats! You finished!', /* delay= */ 10, 'finished-message');
+        setTimeout(confetti.start, 100);
+        setTimeout(confetti.stop, 5000);
+      }
+
+      function getDateString(formatted=false) {
+        if (formatted) {
+          const date = calendarInput.datepicker('getDate');
+          return `${calendarInput.datepicker('getMonthName')} ${date.getDate()}, ${date.getFullYear()}`;
+        }
+        return calendarInput.datepicker('getDate', true);
       }
 
       function getPermutationForDate(dateString, numPermutations) {
@@ -165,7 +289,7 @@
   </head>
 
   <body onload="initializePage()">
-    <div class="nameContainer">
+    <div id="main-content">
     </div>
     <div id="calendar">
       <span id="calendar-button" class="material-icons">
